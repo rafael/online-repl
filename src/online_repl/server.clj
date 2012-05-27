@@ -2,7 +2,8 @@
   (:use  [compojure.core :only  (GET PUT POST defroutes)]
          [clojail core]
          ring.util.response
-         ring.adapter.jetty)
+         ring.adapter.jetty
+         clojure.pprint)
   (:require  (compojure handler route)
             [ring.util.response :as response])
   (:import java.util.concurrent.ExecutionException))
@@ -11,6 +12,15 @@
 
 (def tester #{'alter-var-root java.lang.Thread}) ; Create a blacklist.
 (def sb  (sandbox #{}))
+
+(defn- log  [msg & vals]
+  (let  [line  (apply format msg vals)]
+    (locking System/out  (println line))))
+
+(defn wrap-request-logging  [handler]
+  (fn  [request]
+    (log "Processing %s" (pprint request) )
+    (handler  request)))
 
 (defn parse-string [code]
   (let  [expr  (try  (read-string code)  (catch java.lang.RuntimeException e '()))]
@@ -25,7 +35,8 @@
                     (let [result (parse-string code)] 
                     {:status 200 :body result}))))
 
-(def app (compojure.handler/site app*))
+(def app (-> (compojure.handler/site app*)
+             (wrap-request-logging)))
 
 (defn -main [& args]
   (let [port (Integer/parseInt (get (System/getenv) "PORT" "8080"))]
