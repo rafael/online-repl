@@ -1,10 +1,20 @@
 # online-repl
 
-FIXME: write description
+A compojure app that parses clojure code and returns the response.
 
 ## Usage
 
-FIXME: write
+Do a post to the root url '/' with a json that contains the code to be evaluate it:
+
+{code: "(+ 3 3)"
+
+The server will respond with:
+
+{result: "6"}
+
+Currently this app is deployed in heroku in the following URL:
+
+http://clj-repl.herokuapp.com/
 
 ## License
 
