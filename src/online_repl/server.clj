@@ -1,11 +1,13 @@
 (ns online-repl.server
   (:use  [compojure.core :only  (GET PUT POST defroutes)]
+         [clojure.data.json :only  (read-json)]
          [clojail core]
          ring.util.response
          ring.adapter.jetty
+         ring.middleware.json-params  
          clojure.pprint)
-  (:require  (compojure handler route)
-            [ring.util.response :as response])
+  (:require (compojure handler route)
+            [clj-json.core :as json])
   (:import java.util.concurrent.ExecutionException))
 
 
@@ -13,14 +15,10 @@
 (def tester #{'alter-var-root java.lang.Thread}) ; Create a blacklist.
 (def sb  (sandbox #{}))
 
-(defn- log  [msg & vals]
-  (let  [line  (apply format msg vals)]
-    (locking System/out  (println line))))
-
-(defn wrap-request-logging  [handler]
-  (fn  [request]
-    (log "Processing %s" (pprint request) )
-    (handler  request)))
+(defn json-response  [data &  [status]]
+  {:status  (or status 200)
+      :headers  {"Content-Type" "application/json"}
+      :body  (json/generate-string data)})
 
 (defn parse-string [code]
   (let  [expr  (try  (read-string code)  (catch java.lang.RuntimeException e '()))]
@@ -30,16 +28,15 @@
 
 (defroutes app*
   (GET "/" request "Post something to this URL with a parameter `code` and I will try to evalaute it")
-  (POST "/"  [code]  (if  (empty? code)
-                    {:status 400 :body "No `code` parameter provided"}
+  (POST "/"  {body :body} 
+              (let [code (:code (read-json (slurp body)))] 
+                  (if  (nil? code)
+                    (json-response {:error "No `code` parameter provided"} 400) 
                     (let [result (parse-string code)] 
-                    {:status 200 :body result}))))
+                      (json-response {:result result}))))))
 
-(def app (-> (compojure.handler/site app*)
-             (wrap-request-logging)))
+(def app (compojure.handler/api app*)) 
 
 (defn -main [& args]
   (let [port (Integer/parseInt (get (System/getenv) "PORT" "8080"))]
       (run-jetty app {:port port})))
-
-
