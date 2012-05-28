@@ -15,6 +15,9 @@
 (def tester #{'alter-var-root java.lang.Thread}) ; Create a blacklist.
 (def sb  (sandbox #{}))
 
+(defn commify-seq  [items]
+  (apply str  (interpose \, items)))
+
 (defn json-response  [data &  [status]]
   {:status  (or status 200)
       :headers  {"Content-Type" "application/json"}
@@ -23,8 +26,11 @@
 (defn parse-string [code]
   (let  [expr  (try  (read-string code)  (catch java.lang.RuntimeException e '()))]
     (try
-      (str  (sb expr))
-        (catch java.util.concurrent.ExecutionException e))))
+      (let [result (sb expr)] 
+        (cond (seq? result)
+          (commify-seq result) 
+        :else (str  result)))
+      (catch java.util.concurrent.ExecutionException e)))) 
 
 (defroutes app*
   (GET "/" request "Post something to this URL with a parameter `code` and I will try to evalaute it")
